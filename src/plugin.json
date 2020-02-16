@@ -1,0 +1,14 @@
+{
+    "id": "grafana-historical-headlines",
+    "name": "HistoricalHeadlines",
+    "type": "panel",
+    "info": {
+        "description": "Shows randomly selected headlines based on a number.",
+        "author": {"name": "Ben Johnson"},
+        "version": "0.0.1"
+    },
+    "dependencies": {
+        "grafanaVersion": "5.x.x",
+        "plugins": []
+    }
+}

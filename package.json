@@ -1,0 +1,15 @@
+{
+  "name": "grafana_historical_headlines",
+  "version": "0.0.1",
+  "main": "index.js",
+  "license": "MIT",
+  "author": "Ben Johnson <circuitben@gmail.com>",
+  "dependencies": {
+    "@grafana/toolkit": "latest",
+    "@types/grafana": "github:CorpGlory/types-grafana.git",
+    "@types/jquery": "^3.3.32",
+    "@types/lodash": "4.14.132",
+    "jquery": "^3.4.1",
+    "lodash": "latest"
+  }
+}

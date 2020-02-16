@@ -1,0 +1,6 @@
+/node_modules/
+/pages/
+/dist/
+/src/historical_events.json
+.prettierrc.js
+package-lock.json

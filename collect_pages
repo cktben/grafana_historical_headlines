@@ -1,0 +1,39 @@
+#!/usr/bin/env python3
+
+import argparse
+import json
+import os
+import requests
+
+parser = argparse.ArgumentParser(description='Downloads Wikipedia pages for a range of years')
+parser.add_argument('--start', help='Starting year', type=int, default=1000)
+parser.add_argument('--end', help='Ending year', type=int, default=1000)
+parser.add_argument('--pages', help='Path to pages directory', default='pages')
+args = parser.parse_args()
+
+pages_dir = args.pages
+
+os.makedirs(pages_dir, exist_ok=True)
+params = {
+    'action': 'parse',
+    'prop': 'wikitext',
+    'format': 'json',
+    'formatversion': 2
+}
+
+for year in range(args.start, args.end + 1):
+    page_name = 'AD_1000' if year == 1000 else '%d' % year
+
+    out_path = os.path.join(pages_dir, '%d' % year)
+    if os.path.exists(out_path):
+        print('%d already done - skipping' % year)
+        continue
+
+    print(page_name)
+    params['page'] = page_name
+    r = requests.get('https://en.wikipedia.org/w/api.php', params=params)
+    assert r.status_code == 200
+
+    f = open(out_path, 'w')
+    f.write(r.text)
+    f.close()

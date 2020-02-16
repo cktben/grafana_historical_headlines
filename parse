@@ -1,0 +1,121 @@
+#!/usr/bin/env python3
+
+import argparse
+import html
+import json
+import os
+import re
+
+re_cite = re.compile(r'{{[^}]*}}')
+re_link = re.compile(r'\[\[([^\|\]]*\|)?([^\]]*)\]\]')
+re_ref = re.compile(r'<ref[^<]*</ref>')
+re_superscript = re.compile(r'<sup>([^<]*)</sup>')
+re_section_2 = re.compile(r'==([^=]+)==')
+re_quotes_2 = re.compile("''")
+re_quotes_3 = re.compile("'''([^']*)'''")
+
+def remove_links(text):
+    return re_link.sub(r'\2', text)
+
+# Test the link regex.
+assert remove_links('A|B') == 'A|B'
+assert remove_links('xyz[[A|B]]ghi') == 'xyzBghi'
+assert remove_links('xyz[[B]]ghi') == 'xyzBghi'
+assert remove_links('[[A|B]] [[C|D]]') == 'B D'
+assert remove_links('[[B]] [[C|D]]') == 'B D'
+
+def clean_quotes(text):
+    return re_quotes_2.sub('"', re_quotes_3.sub(r'<b>\1</b>', text))
+
+assert clean_quotes("'A'") == "'A'"
+assert clean_quotes("''A''") == '"A"'
+assert clean_quotes("'''A'''") == '<b>A</b>'
+
+def clean_line(text):
+    text = clean_quotes(text)
+    text = text.replace('&ndash;', '-')
+    text = text.strip()
+    return text
+
+parser = argparse.ArgumentParser(description='Downloads Wikipedia pages for a range of years')
+parser.add_argument('--pages', help='Path to pages directory', default='pages')
+parser.add_argument('--out', help='Output JSON file', default='src/historical_events.json')
+parser.add_argument('--year', help='Parse only one year')
+parser.add_argument('--include-births', action='store_true')
+parser.add_argument('--include-deaths', action='store_true')
+args = parser.parse_args()
+
+pages_dir = args.pages
+
+if args.year:
+    files = [args.year]
+else:
+    files = os.listdir(pages_dir)
+    files.sort()
+
+results = {}
+
+for file_name in files:
+    # Only files named for years may be in the pages directory.
+    year = int(file_name)
+
+    f = open(os.path.join(pages_dir, file_name))
+    obj = json.loads(f.read())
+    f.close()
+
+    text = obj['parse']['wikitext']
+
+    # Clean up the text at a document level first, since ref tags can span lines.
+    text = remove_links(re_ref.sub('', re_cite.sub('', text)))
+
+    lines = text.split('\n')
+
+    events = []
+
+    in_events = False
+    section_prefix = ''
+    common_line = None
+    for i_line in range(len(lines)):
+        line = lines[i_line]
+        next_line = lines[i_line + 1] if i_line < len(lines) - 1 else None
+
+        formatted_line = None
+        if line.startswith('**') and common_line:
+            # Use the previous higher-level bullet as a prefix.
+            formatted_line = common_line + ' - ' + clean_line(line[2:])
+        else:
+            common_line = None
+
+            section_match = re_section_2.fullmatch(line)
+            if section_match:
+                section_name = section_match.group(1).strip()
+
+                if section_name == 'Events':
+                    in_events = True
+                    section_prefix = ''
+                elif section_name == 'Births' and args.include_births:
+                    in_events = True
+                    section_prefix = 'Birth: '
+                elif section_name == 'Deaths' and args.include_deaths:
+                    in_events = True
+                    section_prefix = 'Death: '
+                else:
+                    # An unsupported section
+                    in_events = False
+            elif line.startswith('* ') and in_events:
+                this_line = section_prefix + clean_line(line[2:])
+                if next_line.startswith('**'):
+                    # Use this line as a prefix for the following lines.
+                    common_line = this_line
+                else:
+                    formatted_line = this_line
+
+        if formatted_line:
+            print('%d: %s' % (year, html.unescape(formatted_line)))
+            events.append(formatted_line)
+
+    print('--------\n')
+
+    results[year] = events
+
+open(args.out, 'w').write(json.dumps(results))
